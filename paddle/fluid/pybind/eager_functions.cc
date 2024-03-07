@@ -644,7 +644,7 @@ PyObject* eager_api_run_custom_op(PyObject* self,
     } else if (attr_type_str == "std::string") {
       ctx.EmplaceBackAttr(
           CastPyArg2AttrString(obj, attr_start_idx + i));  // NOLINT
-    } else if (attr_type_str == "std::vector<int>") {
+    } else if (attr_type_str == "std::vector<int>") {      // NOLINT
       ctx.EmplaceBackAttr(CastPyArg2VectorOfInt(obj, attr_start_idx + i));
     } else if (attr_type_str == "std::vector<float>") {
       ctx.EmplaceBackAttr(CastPyArg2VectorOfFloat(obj, attr_start_idx + i));
@@ -1133,8 +1133,9 @@ static PyObject* eager_api_async_read(PyObject* self,
       auto* src_data = src_tensor.data<float>();
       auto* index_data = index_tensor.data<int64_t>();
       auto* buffer_data = buffer_tensor->data<float>();
-      const int& slice_size = src_tensor.numel() / src_tensor.dims()[0];
-      const int& copy_bytes = slice_size * sizeof(float);
+      const int& slice_size =
+          src_tensor.numel() / src_tensor.dims()[0];       // NOLINT
+      const int& copy_bytes = slice_size * sizeof(float);  // NOLINT
       int64_t c = 0;
       for (int64_t i = 0; i < index_tensor.numel(); i++) {
         std::memcpy(buffer_data + c * slice_size,

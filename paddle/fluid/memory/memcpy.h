@@ -51,7 +51,7 @@ TEST_API void Copy(DstPlace, void* dst, SrcPlace, const void* src, size_t num);
  *
  */
 template <typename DstPlace, typename SrcPlace>
-void Copy(
+TEST_API void Copy(
     DstPlace, void* dst, SrcPlace, const void* src, size_t num, void* stream);
 }  // namespace memory
 }  // namespace paddle

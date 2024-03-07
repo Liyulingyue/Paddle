@@ -137,6 +137,8 @@ void CropInferMeta(const MetaTensor& x,
                    MetaTensor* out,
                    MetaConfig config = MetaConfig());
 
+void CSplitInferMeta(const MetaTensor& x, int nranks, MetaTensor* out);
+
 void CumInferMeta(const MetaTensor& x,
                   int axis,
                   bool flatten,
@@ -328,7 +330,7 @@ void KthvalueInferMeta(const MetaTensor& x,
                        MetaTensor* indices,
                        MetaConfig = MetaConfig());
 
-void LogicalNotInfermeta(const MetaTensor& x, MetaTensor* out);
+void LogicalNotInferMeta(const MetaTensor& x, MetaTensor* out);
 
 void LogsumexpInferMeta(const MetaTensor& input,
                         const std::vector<int64_t>& axis,
@@ -433,6 +435,13 @@ void Pad3dInferMeta(const MetaTensor& x,
                     const std::string& data_format,
                     MetaTensor* out,
                     MetaConfig config = MetaConfig());
+
+void PartialSendInferMeta(const MetaTensor& x,
+                          int ring_id,
+                          int peer,
+                          bool use_calc_stream,
+                          int num,
+                          int id);
 
 void PixelShuffleInferMeta(const MetaTensor& x,
                            int upscale_factor,

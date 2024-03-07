@@ -31,8 +31,8 @@ namespace ir {
  */
 #define CINN_IR_SCHEDULE_END(err_msg_level)                    \
   }                                                            \
-  catch (const utils::ErrorHandler& err_hanlder) {             \
-    CINN_THROW(err_hanlder.FormatErrorMessage(err_msg_level)); \
+  catch (const utils::ErrorHandler& err_handler) {             \
+    CINN_THROW(err_handler.FormatErrorMessage(err_msg_level)); \
   }
 
 void DyScheduleImpl::MutateForType(const Expr& loop,
@@ -53,7 +53,7 @@ void DyScheduleImpl::MutateForType(const Expr& loop,
        << static_cast<int>(for_type) << "!\n";
   }
 
-  auto loop_copy = ir::ir_utils::IRCopy(loop);
+  auto loop_copy = ir::ir_utils::IRCopy(loop, /* copy_buffer_node = */ false);
   auto* new_for_node = loop_copy.As<ir::For>();
   CHECK(new_for_node);
   new_for_node->set_for_type(for_type);

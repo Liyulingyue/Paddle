@@ -54,7 +54,7 @@ std::unordered_set<std::string> RelaxShapeCheckOps = {
 
 // NOTE(zhangbo): Which kind of value can be deleted?
 // (1) Value's type needs to be AllocatedDenseTensorType or
-// AllocatedSelectedRowsType; (2) Value's is not persisable.
+// AllocatedSelectedRowsType; (2) Value's is not persistable.
 bool CanBeDeleted(pir::Value value) {
   if (!value.type()) {
     return false;
@@ -63,7 +63,7 @@ bool CanBeDeleted(pir::Value value) {
       !value.type().isa<paddle::dialect::AllocatedSelectedRowsType>()) {
     return false;
   }
-  auto persist_attr = value.attribute<pir::BoolAttribute>(kAttrIsPersisable);
+  auto persist_attr = value.attribute<pir::BoolAttribute>(kAttrIsPersistable);
   return !(persist_attr && persist_attr.data());
 }
 
@@ -184,8 +184,8 @@ bool IsNoNeedBuffer(pir::Operation* op, pir::Value value) {
           info_interface->get_op_info_(op_name),
           paddle::dialect::IsLegacyOp(op_name));
       auto& no_need_buffer_ids = info_parser.NoNeedBufferIds();
-      for (size_t id = 0; id < no_need_buffer_ids.size(); id++) {
-        if (value == op->operand_source(no_need_buffer_ids[id])) {
+      for (auto no_need_buffer_id : no_need_buffer_ids) {
+        if (value == op->operand_source(no_need_buffer_id)) {
           return true;
         }
       }
@@ -451,7 +451,7 @@ std::unordered_map<pir::Operation*, std::string> GetInplaceOps(
     }
   }
   if (!FLAGS_ir_inplace_kernel_blacklist.empty()) {
-    for (auto i : inplace_ops) {
+    for (auto const& i : inplace_ops) {
       std::cout << i.second << std::endl;
     }
   }

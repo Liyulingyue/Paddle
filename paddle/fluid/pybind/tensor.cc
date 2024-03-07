@@ -473,6 +473,7 @@ void BindTensor(pybind11::module &m) {  // NOLINT
              return common::DataLayoutToString(self.layout());
            })
       .def("_share_data_with", &phi::DenseTensor::ShareDataWith)
+      .def("_share_data_nocheck_with", &phi::DenseTensor::ShareDataNoCheckWith)
       .def("__getitem__", PySliceTensor, py::return_value_policy::reference)
       .def("__str__",
            [](const phi::DenseTensor &self) {
@@ -1065,12 +1066,21 @@ void BindTensor(pybind11::module &m) {  // NOLINT
              self.unsafe_mutable_value()->ShareDataWith(src.value());
              return self;
            })
-      .def("_share_data_with", [](DistTensor &self, const DistTensor &src) {
-        self.unsafe_set_dims(src.dims());
-        self.unsafe_set_dist_attr(src.dist_attr());
-        self.unsafe_mutable_value()->ShareDataWith(src.value());
-        return self;
-      });
+      .def("_share_data_nocheck_with",
+           [](DistTensor &self, const DistTensor &src) {
+             self.unsafe_set_dims(src.dims());
+             self.unsafe_set_dist_attr(src.dist_attr());
+             self.unsafe_mutable_value()->ShareDataNoCheckWith(src.value());
+             return self;
+           })
+      .def("_share_data_with",
+           [](DistTensor &self, const DistTensor &src) {
+             self.unsafe_set_dims(src.dims());
+             self.unsafe_set_dist_attr(src.dist_attr());
+             self.unsafe_mutable_value()->ShareDataWith(src.value());
+             return self;
+           })
+      .def("_clear", &DistTensor::clear);
 #endif
 
   py::class_<phi::SelectedRows>(m, "SelectedRows")

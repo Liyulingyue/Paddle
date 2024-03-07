@@ -27,7 +27,6 @@ import paddle.distributed as dist
 from paddle import base
 from paddle.autograd import no_grad
 from paddle.base import core
-from paddle.base.dygraph.base import to_variable
 from paddle.base.executor import global_scope
 from paddle.base.framework import (
     Variable,
@@ -294,7 +293,7 @@ def _update_input_info(inputs):
 class StaticGraphAdapter:
     """
 
-    Model traning/inference with a static graph.
+    Model training/inference with a static graph.
 
     """
 
@@ -634,7 +633,7 @@ class StaticGraphAdapter:
         prog = self._orig_prog.clone()
         # NOTE: When defining learning rate scheduling in static-graph, ops to
         # increase the global step var and calculate learning rate would be
-        # prepended into _orig_prog. test program maked by `_orig_prog.clone`
+        # prepended into _orig_prog. test program marked by `_orig_prog.clone`
         # also would include these ops. Thus must prune these ops in test
         # program, otherwise the global step would be changed in test.
         if mode != 'train':
@@ -795,16 +794,16 @@ class DynamicGraphAdapter:
 
         if self._nranks > 1:
             dist.init_parallel_env()
-            stradegy = paddle.distributed.parallel.ParallelStrategy()
-            stradegy.nranks = paddle.distributed.ParallelEnv().nranks
-            stradegy.local_rank = paddle.distributed.ParallelEnv().local_rank
-            stradegy.trainer_endpoints = (
+            strategy = paddle.distributed.parallel.ParallelStrategy()
+            strategy.nranks = paddle.distributed.ParallelEnv().nranks
+            strategy.local_rank = paddle.distributed.ParallelEnv().local_rank
+            strategy.trainer_endpoints = (
                 paddle.distributed.ParallelEnv().trainer_endpoints
             )
-            stradegy.current_endpoint = (
+            strategy.current_endpoint = (
                 paddle.distributed.ParallelEnv().current_endpoint
             )
-            self.ddp_model = paddle.DataParallel(self.model.network, stradegy)
+            self.ddp_model = paddle.DataParallel(self.model.network, strategy)
 
     @property
     def mode(self):
@@ -824,7 +823,7 @@ class DynamicGraphAdapter:
         inputs = to_list(inputs)
         self._input_info = _update_input_info(inputs)
         labels = labels or []
-        labels = [to_variable(l) for l in to_list(labels)]
+        labels = [paddle.to_tensor(l) for l in to_list(labels)]
 
         # scaler should be initialized only once
         if self._amp_level != "O0" and self.model._scaler is None:
@@ -836,9 +835,11 @@ class DynamicGraphAdapter:
             level=self._amp_level,
         ):
             if self._nranks > 1:
-                outputs = self.ddp_model(*[to_variable(x) for x in inputs])
+                outputs = self.ddp_model(*[paddle.to_tensor(x) for x in inputs])
             else:
-                outputs = self.model.network(*[to_variable(x) for x in inputs])
+                outputs = self.model.network(
+                    *[paddle.to_tensor(x) for x in inputs]
+                )
 
         losses = self.model._loss(*(to_list(outputs) + labels))
         losses = to_list(losses)
@@ -874,11 +875,11 @@ class DynamicGraphAdapter:
         inputs = to_list(inputs)
         self._input_info = _update_input_info(inputs)
         labels = labels or []
-        labels = [to_variable(l) for l in to_list(labels)]
+        labels = [paddle.to_tensor(l) for l in to_list(labels)]
 
-        outputs = self.model.network(*[to_variable(x) for x in inputs])
+        outputs = self.model.network(*[paddle.to_tensor(x) for x in inputs])
 
-        # Transfrom data to expected device
+        # Transform data to expected device
         expected_device = paddle.device.get_device()
         for o in to_list(outputs):
             o._to(device=expected_device)
@@ -933,7 +934,7 @@ class DynamicGraphAdapter:
     def predict_batch(self, inputs):
         self.model.network.eval()
         self.mode = 'test'
-        inputs = [to_variable(x) for x in to_list(inputs)]
+        inputs = [paddle.to_tensor(x) for x in to_list(inputs)]
         self._input_info = _update_input_info(inputs)
         outputs = self.model.network(*inputs)
         if self._nranks > 1 and isinstance(self.model._place, base.CUDAPlace):
@@ -965,7 +966,7 @@ class DynamicGraphAdapter:
             if scaler_state:
                 self.model._scaler.load_state_dict(scaler_state)
 
-        # resotre optimizer states
+        # restore optimizer states
         if not self.model._optimizer or not optim_state:
             return
 
@@ -1076,7 +1077,7 @@ class Model:
             or dict ({name: InputSpec}), and it couldn't be None in static
             graph. Default: None.
         labels (InputSpec|list|tuple|None, optional): `labels`, entry points of network,
-            could be a InputSpec instnace or list/tuple of InputSpec instances,
+            could be a InputSpec instance or list/tuple of InputSpec instances,
             or None. For static graph, if labels is required in loss,
             labels must be set. Otherwise, it could be None. Default: None.
 
@@ -1675,7 +1676,7 @@ class Model:
     ):
         """
 
-        Configures the model before runing.
+        Configures the model before running.
 
         Args:
             optimizer (Optimizer|None, optional): Optimizer must be set in training
@@ -1776,16 +1777,16 @@ class Model:
         Args:
             train_data (Dataset|DataLoader, optional): An iterable data loader is used for
                 train. An instance of paddle paddle.io.Dataset or
-                paddle.io.Dataloader is recomended. Default: None.
+                paddle.io.Dataloader is recommended. Default: None.
             eval_data (Dataset|DataLoader, optional): An iterable data loader is used for
                 evaluation at the end of epoch. If None, will not do evaluation.
                 An instance of paddle.io.Dataset or paddle.io.Dataloader
-                is recomended. Default: None.
+                is recommended. Default: None.
             batch_size (int|list, optional): The batch size of train_data and eval_data. When
                 train_data and eval_data are both the instance of Dataloader, this
                 parameter will be ignored. Default: 1.
             epochs (int, optional): The number of epochs to train the model. Default: 1.
-            eval_freq (int, optional): The frequency, in number of epochs, an evalutation
+            eval_freq (int, optional): The frequency, in number of epochs, an evaluation
                 is performed. Default: 1.
             log_freq (int, optional): The frequency, in number of steps, the training logs
                 are printed. Default: 10.
@@ -1799,7 +1800,7 @@ class Model:
                 train_data when dataset size is not divisible by the batch size.
                 When train_data is an instance of Dataloader, this parameter
                 will be ignored. Default: False.
-            shuffle (bool, optional): Whther to shuffle train_data. When train_data is
+            shuffle (bool, optional): Whether to shuffle train_data. When train_data is
                 an instance of Dataloader, this parameter will be ignored.
                 Default: True.
             num_workers (int, optional): The number of subprocess to load data, 0 for no
@@ -1809,7 +1810,7 @@ class Model:
             callbacks (Callback|None, optional): A list of `Callback` instances to apply
                 during training. If None, :ref:`api_paddle_callbacks_ProgBarLogger` and
                 :ref:`api_paddle_callbacks_ModelCheckpoint` are automatically inserted. Default: None.
-            accumulate_grad_batches (int, optional): The number of batches to accumulate gradident
+            accumulate_grad_batches (int, optional): The number of batches to accumulate gradient
                 during training process before optimizer updates. It can mimic large batch
                 size. Default: 1.
             num_iters (int|None, optional): The number of iterations to evaluate the model.
@@ -2015,7 +2016,7 @@ class Model:
         Args:
             eval_data (Dataset|DataLoader): An iterable data loader is used for
                 evaluation. An instance of paddle.io.Dataset or
-                paddle.io.Dataloader is recomended.
+                paddle.io.Dataloader is recommended.
             batch_size (int, optional): The batch size of train_data and eval_data.
                 When eval_data is the instance of Dataloader, this argument will be
                 ignored. Default: 1.
@@ -2125,7 +2126,7 @@ class Model:
         Args:
             test_data (Dataset|DataLoader): An iterable data loader is used for
                 predict. An instance of paddle.io.Dataset or paddle.io.Dataloader
-                is recomended.
+                is recommended.
             batch_size (int, optional): The batch size of test_data. When test_data is the
                 instance of Dataloader, this argument will be ignored. Default: 1.
             num_workers (int, optional): The number of subprocess to load data, 0 for no subprocess
@@ -2299,13 +2300,13 @@ class Model:
             # Data might come from different types of data_loader and have
             # different format, as following:
             # 1. DataLoader in static graph:
-            #    [[input1, input2, ..., label1, lable2, ...]]
+            #    [[input1, input2, ..., label1, label2, ...]]
             # 2. DataLoader in dygraph
-            #    [input1, input2, ..., label1, lable2, ...]
+            #    [input1, input2, ..., label1, label2, ...]
             # 3. custumed iterator yield concated inputs and labels:
-            #   [input1, input2, ..., label1, lable2, ...]
+            #   [input1, input2, ..., label1, label2, ...]
             # 4. custumed iterator yield separated inputs and labels:
-            #   ([input1, input2, ...], [label1, lable2, ...])
+            #   ([input1, input2, ...], [label1, label2, ...])
             # To handle all of these, flatten (nested) list to list.
             data = paddle.utils.flatten(data)
             # LoDTensor.shape is callable, where LoDTensor comes from
@@ -2468,7 +2469,7 @@ class Model:
             ]
         else:
             out_specs = to_list(specs)
-        # Note: checks each element has specificed `name`.
+        # Note: checks each element has specified `name`.
         if out_specs is not None:
             for i, spec in enumerate(out_specs):
                 assert isinstance(spec, Input)
